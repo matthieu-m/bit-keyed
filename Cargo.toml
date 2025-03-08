@@ -1,0 +1,23 @@
+[package]
+name = "bit-keyed"
+version = "0.1.0"
+authors = ["Matthieu M. <matthieum.147192@gmail.com>"]
+edition = "2021"
+description = "Bit-keyed collections"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/matthieu-m/bit-keyed"
+readme = "README.md"
+keywords = ["no-std", "bit", "collections"]
+categories = ["no-std", "data-structures"]
+
+[features]
+
+default = []
+
+#   Enables "serde" feature, which makes a number of types Serializable and Deserializable.
+serde = [ "dep:serde" ]
+
+[dependencies]
+
+#   Only with "serde" feature.
+serde = { version = "1.0.218", features = ["derive"], optional = true }
