@@ -2,7 +2,7 @@
 name = "bit-keyed"
 version = "0.1.0"
 authors = ["Matthieu M. <matthieum.147192@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "Bit-keyed collections"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/matthieu-m/bit-keyed"
@@ -13,6 +13,13 @@ categories = ["no-std", "data-structures"]
 [features]
 
 default = []
+
+#   Enables "alloc" feature, which enables the use of the `alloc` crate.
+alloc = []
+
+#   Enables "allocator_api" feature, which enables the customization of the allocator.
+#   This implicitly enables the "alloc" feature.
+allocator_api = [ "alloc" ]
 
 #   Enables "serde" feature, which makes a number of types Serializable and Deserializable.
 serde = [ "dep:serde" ]

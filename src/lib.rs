@@ -45,10 +45,17 @@
 //! It does mean that on an 8-bits or 16-bits platform the type is larger than necessary, and may not be supported. This
 //! an unfortunate trade-off, but one this author is willing to make.
 
-//  Features
 #![cfg_attr(not(test), no_std)]
+//  Features (language)
+//  Features (library)
+#![cfg_attr(feature = "allocator_api", feature(allocator_api))]
 //  Lints
 #![deny(missing_docs)]
+//  This author prefers to keep its test modules close to what they are testing.
+#![allow(clippy::items_after_test_module)]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 pub mod utils;
 

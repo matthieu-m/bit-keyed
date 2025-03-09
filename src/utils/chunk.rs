@@ -27,9 +27,6 @@
 //
 //  Its alignment may prove annoying, in some cases. Trade-offs, trade-offs, ...
 
-//  This author prefers to keep its test modules close to what they are testing.
-#![allow(clippy::items_after_test_module)]
-
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
 
 /// A chunk of bits.
@@ -104,6 +101,7 @@ impl BitChunk {
     /// assert_eq!(2, of_chunk.0);
     /// assert_eq!(5, in_chunk.0);
     /// ```
+    #[inline]
     pub const fn split(key: u64) -> Option<(IndexOfChunk, IndexInChunk)> {
         //  Compute both / and % close together, so the optimizer fuses both in a single instruction.
         let of_chunk = key / Self::BITS;
@@ -141,6 +139,7 @@ impl BitChunk {
     ///
     /// assert_eq!(133, key);
     /// ```
+    #[inline]
     pub const fn fuse(of_chunk: IndexOfChunk, in_chunk: IndexInChunk) -> Option<u64> {
         debug_assert!(in_chunk.0 < Self::BITS as _);
 
@@ -265,6 +264,7 @@ impl BitChunk {
     /// assert_eq!(0, BitChunk::ALL_ZEROS.count());
     /// assert_eq!(64, BitChunk::ALL_ONES.count());
     /// ```
+    #[inline]
     pub const fn count(&self) -> usize {
         self.0.count_ones() as _
     }
@@ -288,6 +288,7 @@ impl BitChunk {
     ///     assert!(!chunk.is_set(IndexInChunk(i)));
     /// }
     /// ```
+    #[inline]
     pub const fn is_set(&self, bit: IndexInChunk) -> bool {
         let mask = Self::bit_mask(bit);
 
@@ -313,6 +314,7 @@ impl BitChunk {
     ///
     /// assert_eq!(0b1101, chunk.0);
     /// ```
+    #[inline]
     pub const fn set(&mut self, bit: IndexInChunk) -> bool {
         let mask = Self::bit_mask(bit);
 
@@ -342,6 +344,7 @@ impl BitChunk {
     ///
     /// assert_eq!(0b1000, chunk.0);
     /// ```
+    #[inline]
     pub const fn reset(&mut self, bit: IndexInChunk) -> bool {
         let mask = Self::bit_mask(bit);
 
@@ -430,6 +433,7 @@ impl BitChunk {
     /// assert_eq!(64, BitChunk::ALL_ONES.count_after(IndexInChunk(0)));
     /// assert_eq!(1, BitChunk::ALL_ONES.count_after(IndexInChunk(63)));
     /// ```
+    #[inline]
     pub const fn count_after(&self, bit: IndexInChunk) -> usize {
         let mask = Self::mask_after(bit);
 
@@ -447,6 +451,7 @@ impl BitChunk {
     /// assert_eq!(1, BitChunk::ALL_ONES.count_before(IndexInChunk(0)));
     /// assert_eq!(64, BitChunk::ALL_ONES.count_before(IndexInChunk(63)));
     /// ```
+    #[inline]
     pub const fn count_before(&self, bit: IndexInChunk) -> usize {
         let mask = Self::mask_before(bit);
 
@@ -463,6 +468,7 @@ impl BitChunk {
     ///
     /// assert_eq!(Some(IndexInChunk(0)), BitChunk::ALL_ONES.next_after(IndexInChunk(0)));
     /// ```
+    #[inline]
     pub const fn next_after(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
         let mask = Self::mask_after(bit);
 
@@ -486,6 +492,7 @@ impl BitChunk {
     ///
     /// assert_eq!(Some(IndexInChunk(63)), BitChunk::ALL_ONES.next_before(IndexInChunk(63)));
     /// ```
+    #[inline]
     pub const fn next_before(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
         let mask = Self::mask_before(bit);
 
@@ -587,6 +594,7 @@ mod query_tests {
 //
 
 impl BitAndAssign for BitChunk {
+    #[inline]
     fn bitand_assign(&mut self, rhs: Self) {
         self.0 &= rhs.0;
     }
@@ -595,6 +603,7 @@ impl BitAndAssign for BitChunk {
 impl BitAnd for BitChunk {
     type Output = Self;
 
+    #[inline]
     fn bitand(mut self, rhs: Self) -> Self::Output {
         self &= rhs;
         self
@@ -602,6 +611,7 @@ impl BitAnd for BitChunk {
 }
 
 impl BitOrAssign for BitChunk {
+    #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
     }
@@ -610,6 +620,7 @@ impl BitOrAssign for BitChunk {
 impl BitOr for BitChunk {
     type Output = Self;
 
+    #[inline]
     fn bitor(mut self, rhs: Self) -> Self::Output {
         self |= rhs;
         self
@@ -617,6 +628,7 @@ impl BitOr for BitChunk {
 }
 
 impl BitXorAssign for BitChunk {
+    #[inline]
     fn bitxor_assign(&mut self, rhs: Self) {
         self.0 ^= rhs.0;
     }
@@ -625,6 +637,7 @@ impl BitXorAssign for BitChunk {
 impl BitXor for BitChunk {
     type Output = Self;
 
+    #[inline]
     fn bitxor(mut self, rhs: Self) -> Self::Output {
         self ^= rhs;
         self
@@ -693,6 +706,7 @@ mod bitwise_tests {
 
 impl BitChunk {
     //  Mask of the bit.
+    #[inline]
     const fn bit_mask(bit: IndexInChunk) -> u64 {
         debug_assert!(bit.0 < Self::BITS as _);
 
@@ -703,6 +717,7 @@ impl BitChunk {
     }
 
     //  Mask including `bit` and all bits after.
+    #[inline]
     const fn mask_after(bit: IndexInChunk) -> u64 {
         let mask = Self::bit_mask(bit) - 1;
 
@@ -710,6 +725,7 @@ impl BitChunk {
     }
 
     //  Mask including `bit` and all bits before.
+    #[inline]
     const fn mask_before(bit: IndexInChunk) -> u64 {
         (Self::bit_mask(bit) << 1).wrapping_sub(1)
     }
