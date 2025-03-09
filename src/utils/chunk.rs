@@ -255,6 +255,20 @@ mod static_tests {
 //
 
 impl BitChunk {
+    /// Returns the number of bits set.
+    ///
+    /// #   Examples
+    ///
+    /// ```
+    /// #   use bit_keyed::utils::BitChunk;
+    ///
+    /// assert_eq!(0, BitChunk::ALL_ZEROS.count());
+    /// assert_eq!(64, BitChunk::ALL_ONES.count());
+    /// ```
+    pub const fn count(&self) -> usize {
+        self.0.count_ones() as _
+    }
+
     /// Returns whether the given bit is set.
     ///
     /// #   Panics
@@ -405,20 +419,54 @@ mod bit_tests {
 //
 
 impl BitChunk {
+    /// Returns the number of bits set that are at, or after, the given index.
+    ///
+    /// #   Examples
+    ///
+    /// ```
+    /// #   use bit_keyed::utils::{BitChunk, IndexInChunk};
+    /// assert_eq!(0, BitChunk::ALL_ZEROS.count_after(IndexInChunk(0)));
+    ///
+    /// assert_eq!(64, BitChunk::ALL_ONES.count_after(IndexInChunk(0)));
+    /// assert_eq!(1, BitChunk::ALL_ONES.count_after(IndexInChunk(63)));
+    /// ```
+    pub const fn count_after(&self, bit: IndexInChunk) -> usize {
+        let mask = Self::mask_after(bit);
+
+        (self.0 & mask).count_ones() as _
+    }
+
+    /// Returns the number of bits set that are at, or before, the given index.
+    ///
+    /// #   Examples
+    ///
+    /// ```
+    /// #   use bit_keyed::utils::{BitChunk, IndexInChunk};
+    /// assert_eq!(0, BitChunk::ALL_ZEROS.count_before(IndexInChunk(0)));
+    ///
+    /// assert_eq!(1, BitChunk::ALL_ONES.count_before(IndexInChunk(0)));
+    /// assert_eq!(64, BitChunk::ALL_ONES.count_before(IndexInChunk(63)));
+    /// ```
+    pub const fn count_before(&self, bit: IndexInChunk) -> usize {
+        let mask = Self::mask_before(bit);
+
+        (self.0 & mask).count_ones() as _
+    }
+
     /// Returns the index of the next set bit that is at, or after, the given index, if any.
     ///
     /// #   Examples
     ///
     /// ```
     /// #   use bit_keyed::utils::{BitChunk, IndexInChunk};
-    /// assert_eq!(None, BitChunk::ALL_ZEROS.next(IndexInChunk(0)));
+    /// assert_eq!(None, BitChunk::ALL_ZEROS.next_after(IndexInChunk(0)));
     ///
-    /// assert_eq!(Some(IndexInChunk(0)), BitChunk::ALL_ONES.next(IndexInChunk(0)));
+    /// assert_eq!(Some(IndexInChunk(0)), BitChunk::ALL_ONES.next_after(IndexInChunk(0)));
     /// ```
-    pub const fn next(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
-        let mask = Self::bit_mask(bit) - 1;
+    pub const fn next_after(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
+        let mask = Self::mask_after(bit);
 
-        let zeros = (self.0 & !mask).trailing_zeros();
+        let zeros = (self.0 & mask).trailing_zeros();
 
         //  FIXME: convert to `.then_some` when it is const.
         if zeros < Self::BITS as _ {
@@ -434,12 +482,12 @@ impl BitChunk {
     ///
     /// ```
     /// #   use bit_keyed::utils::{BitChunk, IndexInChunk};
-    /// assert_eq!(None, BitChunk::ALL_ZEROS.next_back(IndexInChunk(63)));
+    /// assert_eq!(None, BitChunk::ALL_ZEROS.next_before(IndexInChunk(63)));
     ///
-    /// assert_eq!(Some(IndexInChunk(63)), BitChunk::ALL_ONES.next_back(IndexInChunk(63)));
+    /// assert_eq!(Some(IndexInChunk(63)), BitChunk::ALL_ONES.next_before(IndexInChunk(63)));
     /// ```
-    pub const fn next_back(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
-        let mask = (Self::bit_mask(bit) << 1).wrapping_sub(1);
+    pub const fn next_before(&self, bit: IndexInChunk) -> Option<IndexInChunk> {
+        let mask = Self::mask_before(bit);
 
         let bits = Self::BITS as u32;
         let zeros = (self.0 & mask).leading_zeros();
@@ -460,39 +508,77 @@ mod query_tests {
     const BITS: u32 = BitChunk::BITS as u32;
 
     #[test]
-    fn next_empty() {
+    fn count_after_empty() {
         for i in 0..BITS {
-            assert_eq!(None, compute_next(0, i), "{i}");
+            assert_eq!(0, compute_count_after(0, i), "{i}");
         }
     }
 
     #[test]
-    fn next_full() {
+    fn count_after_full() {
         for i in 0..BITS {
-            assert_eq!(Some(i), compute_next(!0, i), "{i}");
+            assert_eq!(BITS - i, compute_count_after(!0, i), "{i}");
         }
     }
 
     #[test]
-    fn next_back_empty() {
+    fn count_before_empty() {
         for i in 0..BITS {
-            assert_eq!(None, compute_next_back(0, i), "{i}");
+            assert_eq!(0, compute_count_before(0, i), "{i}");
         }
     }
 
     #[test]
-    fn next_back_full() {
+    fn count_before_full() {
         for i in 0..BITS {
-            assert_eq!(Some(i), compute_next_back(!0, i), "{i}");
+            assert_eq!(1 + i, compute_count_before(!0, i), "{i}");
         }
     }
 
-    fn compute_next(chunk: u64, bit: u32) -> Option<u32> {
-        BitChunk(chunk).next(IndexInChunk(bit)).map(|in_chunk| in_chunk.0)
+    #[test]
+    fn next_after_empty() {
+        for i in 0..BITS {
+            assert_eq!(None, compute_next_after(0, i), "{i}");
+        }
     }
 
-    fn compute_next_back(chunk: u64, bit: u32) -> Option<u32> {
-        BitChunk(chunk).next_back(IndexInChunk(bit)).map(|in_chunk| in_chunk.0)
+    #[test]
+    fn next_after_full() {
+        for i in 0..BITS {
+            assert_eq!(Some(i), compute_next_after(!0, i), "{i}");
+        }
+    }
+
+    #[test]
+    fn next_before_empty() {
+        for i in 0..BITS {
+            assert_eq!(None, compute_next_before(0, i), "{i}");
+        }
+    }
+
+    #[test]
+    fn next_before_full() {
+        for i in 0..BITS {
+            assert_eq!(Some(i), compute_next_before(!0, i), "{i}");
+        }
+    }
+
+    fn compute_count_after(chunk: u64, bit: u32) -> u32 {
+        BitChunk(chunk).count_after(IndexInChunk(bit)) as _
+    }
+
+    fn compute_count_before(chunk: u64, bit: u32) -> u32 {
+        BitChunk(chunk).count_before(IndexInChunk(bit)) as _
+    }
+
+    fn compute_next_after(chunk: u64, bit: u32) -> Option<u32> {
+        BitChunk(chunk).next_after(IndexInChunk(bit)).map(|in_chunk| in_chunk.0)
+    }
+
+    fn compute_next_before(chunk: u64, bit: u32) -> Option<u32> {
+        BitChunk(chunk)
+            .next_before(IndexInChunk(bit))
+            .map(|in_chunk| in_chunk.0)
     }
 } // mod query_tests
 
@@ -614,5 +700,17 @@ impl BitChunk {
         let shift = bit.0 % Self::BITS as u32;
 
         1 << shift
+    }
+
+    //  Mask including `bit` and all bits after.
+    const fn mask_after(bit: IndexInChunk) -> u64 {
+        let mask = Self::bit_mask(bit) - 1;
+
+        !mask
+    }
+
+    //  Mask including `bit` and all bits before.
+    const fn mask_before(bit: IndexInChunk) -> u64 {
+        (Self::bit_mask(bit) << 1).wrapping_sub(1)
     }
 }
