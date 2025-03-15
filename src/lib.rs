@@ -57,6 +57,8 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod api;
+pub mod collections;
 pub mod utils;
 
-//  TODO: collections, then algorithms.
+//  TODO: complete collections, then introduce algorithms.
