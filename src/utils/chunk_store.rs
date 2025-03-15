@@ -133,7 +133,9 @@ mod array {
 
         #[inline]
         fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
-            Some(index)
+            //  Safety:
+            //  -   `get_unchecked` relies on this method only returning in-bounds indexes.
+            (index.0 < N).then_some(index)
         }
 
         #[inline]
@@ -554,7 +556,9 @@ mod dynamic_core {
 
         #[inline]
         pub(super) fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
-            Some(index)
+            //  Safety:
+            //  -   `get_unchecked` relies on this method only returning in-bounds indexes.
+            (index.0 < self.ptr.len()).then_some(index)
         }
 
         #[inline]
