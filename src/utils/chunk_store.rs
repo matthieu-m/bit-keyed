@@ -66,7 +66,7 @@ pub trait BitChunkView {
 ///
 /// The trait is pre-implemented for `[BitChunk; N]`, and exists to allow for alternative representations, such as
 /// compressed sets, or sparse sets.
-pub trait BitChunkStore {
+pub trait BitChunkStore: BitChunkView {
     /// Sets the `BitChunk` at the given index.
     ///
     /// On success, returns the previous chunk stored at `index`, or `ALL_ZEROS` if no such chunk existed. On error,
@@ -77,6 +77,18 @@ pub trait BitChunkStore {
     /// attempt to store beyond the current capacity of the vector may fail if the memory allocation fails at this point
     /// in time.
     fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError>;
+
+    /// Sets the `BitChunk` at the given index.
+    ///
+    /// #   Safety
+    ///
+    /// `index` must be the index of a non `ALL_ZEROS` chunk, prior to this call.
+    #[inline]
+    unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+        let _result = self.set(index, chunk);
+
+        debug_assert!(_result.is_ok());
+    }
 }
 
 /// A marker trait to guarantee that the store faithfully executes reads & writes.
@@ -88,6 +100,90 @@ pub trait BitChunkStore {
 /// -   One-pass: implementations guarantee that `self.next_after(index)`, resp. `self.next_before(index)`, return an
 ///     index that is greater than or equal to `index`, resp. less than or equal to `index`.
 pub unsafe trait TrustedBitChunkStore {}
+
+//
+//  Implementation for references.
+//
+
+impl<V> BitChunkView for &V
+where
+    V: BitChunkView,
+{
+    fn get(&self, index: IndexOfChunk) -> BitChunk {
+        (**self).get(index)
+    }
+
+    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+        //  Safety: forwarded.
+        unsafe { (**self).get_unchecked(index) }
+    }
+
+    fn first(&self) -> Option<IndexOfChunk> {
+        (**self).first()
+    }
+
+    fn last(&self) -> Option<IndexOfChunk> {
+        (**self).last()
+    }
+
+    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        (**self).next_after(index)
+    }
+
+    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        (**self).next_before(index)
+    }
+}
+
+//  Safety: forward.
+unsafe impl<V> TrustedBitChunkStore for &V where V: BitChunkView + TrustedBitChunkStore {}
+
+impl<V> BitChunkView for &mut V
+where
+    V: BitChunkView,
+{
+    fn get(&self, index: IndexOfChunk) -> BitChunk {
+        (**self).get(index)
+    }
+
+    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+        //  Safety: forwarded.
+        unsafe { (**self).get_unchecked(index) }
+    }
+
+    fn first(&self) -> Option<IndexOfChunk> {
+        (**self).first()
+    }
+
+    fn last(&self) -> Option<IndexOfChunk> {
+        (**self).last()
+    }
+
+    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        (**self).next_after(index)
+    }
+
+    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        (**self).next_before(index)
+    }
+}
+
+impl<V> BitChunkStore for &mut V
+where
+    V: BitChunkStore,
+{
+    fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+        (**self).set(index, chunk)
+    }
+
+    unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+        //  Safety: forward.
+        unsafe { (**self).set_unchecked(index, chunk) };
+    }
+}
+
+//  Safety: forward.
+unsafe impl<V> TrustedBitChunkStore for &mut V where V: BitChunkStore + TrustedBitChunkStore {}
 
 //
 //  Implementation for [BitChunk; N].

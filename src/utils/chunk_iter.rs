@@ -19,9 +19,14 @@ where
         Self { of_chunk, view }
     }
 
-    /// Returns the index of the chunk next returned by `self.next()`, if any.
-    pub fn index(&self) -> Option<IndexOfChunk> {
-        self.of_chunk
+    /// Returns the underlying view.
+    pub fn view(&self) -> &V {
+        &self.view
+    }
+
+    /// Returns the underlying view.
+    pub fn view_mut(&mut self) -> &mut V {
+        &mut self.view
     }
 }
 
@@ -29,7 +34,7 @@ impl<V> Iterator for BitChunkIter<V>
 where
     V: BitChunkView,
 {
-    type Item = BitChunk;
+    type Item = (IndexOfChunk, BitChunk);
 
     fn next(&mut self) -> Option<Self::Item> {
         let of_chunk = self.of_chunk?;
@@ -40,7 +45,7 @@ where
 
         self.of_chunk = of_chunk.checked_add(1).and_then(|i| self.view.next_after(i));
 
-        Some(chunk)
+        Some((of_chunk, chunk))
     }
 }
 
@@ -61,9 +66,14 @@ where
         Self { of_chunk, view }
     }
 
-    /// Returns the index of the chunk next returned by `self.next()`, if any.
-    pub fn index(&self) -> Option<IndexOfChunk> {
-        self.of_chunk
+    /// Returns the underlying view.
+    pub fn view(&self) -> &V {
+        &self.view
+    }
+
+    /// Returns the underlying view.
+    pub fn view_mut(&mut self) -> &mut V {
+        &mut self.view
     }
 }
 
@@ -71,7 +81,7 @@ impl<V> Iterator for BitChunkIterRev<V>
 where
     V: BitChunkView,
 {
-    type Item = BitChunk;
+    type Item = (IndexOfChunk, BitChunk);
 
     fn next(&mut self) -> Option<Self::Item> {
         let of_chunk = self.of_chunk?;
@@ -82,7 +92,7 @@ where
 
         self.of_chunk = of_chunk.checked_sub(1).and_then(|i| self.view.next_before(i));
 
-        Some(chunk)
+        Some((of_chunk, chunk))
     }
 }
 
@@ -126,8 +136,8 @@ mod tests {
 
     fn collect<I>(iter: I) -> Vec<BitChunk>
     where
-        I: Iterator<Item = BitChunk>,
+        I: Iterator<Item = (IndexOfChunk, BitChunk)>,
     {
-        iter.collect()
+        iter.map(|(_, c)| c).collect()
     }
 } // mod tests
