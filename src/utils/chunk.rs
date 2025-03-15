@@ -48,6 +48,18 @@ pub struct BitChunk(pub u64);
 #[repr(transparent)]
 pub struct IndexOfChunk(pub usize);
 
+impl IndexOfChunk {
+    /// Returns the incremented index, if any.
+    pub fn checked_add(self, offset: usize) -> Option<IndexOfChunk> {
+        self.0.checked_add(offset).map(Self)
+    }
+
+    /// Returns the decremented index, if any.
+    pub fn checked_sub(self, offset: usize) -> Option<IndexOfChunk> {
+        self.0.checked_sub(offset).map(Self)
+    }
+}
+
 /// The index of a bit in a chunk.
 ///
 /// The index of a bit in a chunk is expected to always be strictly less than 64. No index created by `BitChunk::split`
