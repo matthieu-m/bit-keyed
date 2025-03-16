@@ -15,5 +15,11 @@
 pub mod bit_set_core;
 pub mod bit_set_inline;
 
+#[cfg(feature = "alloc")]
+pub mod bit_set_dynamic;
+
 pub use bit_set_core::BitSetCore;
 pub use bit_set_inline::BitSetInline;
+
+#[cfg(feature = "alloc")]
+pub use bit_set_dynamic::BitSetDynamic;
