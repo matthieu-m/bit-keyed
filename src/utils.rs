@@ -10,7 +10,9 @@ mod last_chunk_store;
 pub mod alloc;
 
 pub use chunk::{BitChunkRaw, IndexInChunkRaw, IndexOfChunkRaw};
-pub use chunk_iter::{BitIndexOfChunkIter, BitIndexOfChunkIterRev, BitOfChunkIter, BitOfChunkIterRev};
+pub use chunk_iter::{
+    BitInChunkIter, BitInChunkIterRev, BitIndexOfChunkIter, BitIndexOfChunkIterRev, BitOfChunkIter, BitOfChunkIterRev,
+};
 pub use chunk_store::{BitChunkStoreRaw, BitChunkViewRaw, TrustedBitChunkStoreRaw};
 pub use error::BitStoreError;
 pub use last_chunk_store::{LastBitChunkStoreRaw, LastBitChunkViewRaw};

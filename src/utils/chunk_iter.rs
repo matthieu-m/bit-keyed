@@ -1,6 +1,164 @@
 //  See structs.
 
-use super::{BitChunkRaw, BitChunkViewRaw, IndexOfChunkRaw};
+use super::{BitChunkRaw, BitChunkViewRaw, IndexInChunkRaw, IndexOfChunkRaw};
+
+//
+//  In chunk iterators.
+//
+
+/// Forward iterator over a `BitChunkRaw`.
+#[derive(Clone, Debug)]
+pub struct BitInChunkIter {
+    next: IndexInChunkRaw,
+    chunk: BitChunkRaw,
+}
+
+impl BitInChunkIter {
+    /// Creates a new iterator.
+    pub const fn new(chunk: BitChunkRaw) -> Self {
+        let next = IndexInChunkRaw(0);
+
+        Self { next, chunk }
+    }
+
+    //  Gives the index.
+    fn index(index: IndexInChunkRaw) -> Option<IndexInChunkRaw> {
+        (index.0 < BITS_32).then_some(index)
+    }
+}
+
+impl Iterator for BitInChunkIter {
+    type Item = IndexInChunkRaw;
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let Some(next) = Self::index(self.next) else {
+            return (0, Some(0));
+        };
+
+        let count = self.chunk.count_after(next);
+
+        (count, Some(count))
+    }
+
+    fn count(self) -> usize {
+        let Some(next) = Self::index(self.next) else {
+            return 0;
+        };
+
+        self.chunk.count_after(next)
+    }
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = Self::index(self.next)?;
+
+        let result = self.chunk.next_after(next);
+
+        self.next.0 = result.map(|i| i.0 + 1).unwrap_or(BITS_32);
+
+        result
+    }
+}
+
+/// Backward iterator over a `BitChunkRaw`.
+#[derive(Clone, Debug)]
+pub struct BitInChunkIterRev {
+    next: IndexInChunkRaw,
+    chunk: BitChunkRaw,
+}
+
+impl BitInChunkIterRev {
+    /// Creates a new iterator.
+    pub const fn new(chunk: BitChunkRaw) -> Self {
+        let next = IndexInChunkRaw(BITS_32);
+
+        Self { next, chunk }
+    }
+
+    //  Reverses the index.
+    fn index(index: IndexInChunkRaw) -> Option<IndexInChunkRaw> {
+        index.0.checked_sub(1).map(IndexInChunkRaw)
+    }
+}
+
+impl Iterator for BitInChunkIterRev {
+    type Item = IndexInChunkRaw;
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let Some(next) = Self::index(self.next) else {
+            return (0, Some(0));
+        };
+
+        let count = self.chunk.count_before(next);
+
+        (count, Some(count))
+    }
+
+    fn count(self) -> usize {
+        let Some(next) = Self::index(self.next) else {
+            return 0;
+        };
+
+        self.chunk.count_before(next)
+    }
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = Self::index(self.next)?;
+
+        let result = self.chunk.next_before(next);
+
+        self.next.0 = result.map(|i| i.0).unwrap_or(0);
+
+        result
+    }
+}
+
+//
+//  Implementations for in chunks iterators.
+//
+
+const BITS_32: u32 = BitChunkRaw::BITS as _;
+
+#[cfg(test)]
+mod in_chunk_tests {
+    use super::*;
+
+    #[test]
+    fn empty() {
+        const EMPTY: &[u32] = &[];
+
+        assert_eq!(EMPTY, collect_forward(0));
+        assert_eq!(EMPTY, collect_backward(0));
+    }
+
+    #[test]
+    fn single() {
+        const SINGLE: &[u32] = &[1];
+
+        assert_eq!(SINGLE, collect_forward(0b0010));
+        assert_eq!(SINGLE, collect_backward(0b0010));
+    }
+
+    #[test]
+    fn boundaries() {
+        const FORWARD: &[u32] = &[0, 63];
+        const BACKWARD: &[u32] = &[63, 0];
+
+        assert_eq!(FORWARD, collect_forward(1 << 63 | 1));
+        assert_eq!(BACKWARD, collect_backward(1 << 63 | 1));
+    }
+
+    fn collect_forward(chunk: u64) -> Vec<u32> {
+        BitInChunkIter::new(BitChunkRaw(chunk)).map(|i| i.0).collect()
+    }
+
+    fn collect_backward(chunk: u64) -> Vec<u32> {
+        BitInChunkIterRev::new(BitChunkRaw(chunk)).map(|i| i.0).collect()
+    }
+} // in_chunk_tests
+
+//
+//  Of chunks iterators.
+//
 
 /// Forward iterator over a `BitChunkViewRaw`.
 pub struct BitIndexOfChunkIter {
@@ -151,7 +309,7 @@ where
 }
 
 #[cfg(test)]
-mod iter_tests {
+mod of_chunk_tests {
     use super::*;
 
     #[test]
@@ -194,4 +352,4 @@ mod iter_tests {
     {
         iter.map(|(_, c)| c).collect()
     }
-} // mod iter_tests
+} // mod of_chunk_tests
