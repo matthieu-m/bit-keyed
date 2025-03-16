@@ -1,9 +1,6 @@
 //! A generic bit-keyed set.
 
-use crate::{
-    api::{BitKey, BitStoreError},
-    utils::BitChunkView,
-};
+use crate::api::{BitKey, BitStoreError, BitView};
 
 /// A generic bit-keyed set.
 ///
@@ -13,12 +10,12 @@ pub trait BitSet {
     type Element: BitKey;
 
     /// Type of the view of the chunks.
-    type ChunkView<'a>: BitChunkView + 'a
+    type BitView<'a>: BitView<Key = Self::Element> + 'a
     where
         Self: 'a;
 
     /// Returns the underlying chunks.
-    fn chunks(&self) -> Self::ChunkView<'_>;
+    fn chunks(&self) -> Self::BitView<'_>;
 
     /// Returns whether the set is empty.
     fn is_empty(&self) -> bool;

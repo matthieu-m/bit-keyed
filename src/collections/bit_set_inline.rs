@@ -1,14 +1,14 @@
 //! Inline implementation of a bit set.
 
 use crate::{
-    api::{BitKey, BitSet, BitStoreError},
+    api::{BitKey, BitSet, BitStoreError, bit_view::BitViewAdapter},
     collections::BitSetCore,
-    utils::BitChunk,
+    utils::BitChunkRaw,
 };
 
 /// Inline implementation of a bit set.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct BitSetInline<const N: usize>(BitSetCore<[BitChunk; N]>);
+pub struct BitSetInline<const N: usize>(BitSetCore<[BitChunkRaw; N]>);
 
 //
 //  Creation
@@ -17,7 +17,7 @@ pub struct BitSetInline<const N: usize>(BitSetCore<[BitChunk; N]>);
 impl<const N: usize> BitSetInline<N> {
     /// Creates a new, empty, set.
     pub const fn new() -> Self {
-        Self(BitSetCore::new([BitChunk::ALL_ZEROS; N]))
+        Self(BitSetCore::new([BitChunkRaw::ALL_ZEROS; N]))
     }
 }
 
@@ -33,8 +33,8 @@ impl<const N: usize> Default for BitSetInline<N> {
 
 impl<const N: usize> BitSetInline<N> {
     /// Returns the underlying chunks.
-    pub fn chunks(&self) -> &[BitChunk; N] {
-        self.0.chunks()
+    pub fn chunks(&self) -> BitViewAdapter<&[BitChunkRaw; N], usize> {
+        BitViewAdapter::from_raw(self.0.chunks())
     }
 
     /// Returns whether the set is empty.
@@ -81,10 +81,10 @@ impl<const N: usize> BitSetInline<N> {
 impl<const N: usize> BitSet for BitSetInline<N> {
     type Element = usize;
 
-    type ChunkView<'a> = &'a [BitChunk; N];
+    type BitView<'a> = BitViewAdapter<&'a [BitChunkRaw; N], usize>;
 
-    fn chunks(&self) -> &[BitChunk; N] {
-        self.0.chunks()
+    fn chunks(&self) -> BitViewAdapter<&[BitChunkRaw; N], usize> {
+        BitViewAdapter::from_raw(self.0.chunks())
     }
 
     fn is_empty(&self) -> bool {

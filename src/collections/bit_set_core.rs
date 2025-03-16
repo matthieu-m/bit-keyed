@@ -1,6 +1,6 @@
 //! Core implementation of a bit-keyed set, generic over a chunks store.
 
-use crate::utils::{BitChunk, BitChunkIter, BitChunkStore, BitStoreError};
+use crate::utils::{BitChunkIter, BitChunkRaw, BitChunkStoreRaw, BitStoreError};
 
 /// Core implementation of a bit-keyed set.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -34,7 +34,7 @@ where
 
 impl<S> BitSetCore<S>
 where
-    S: BitChunkStore,
+    S: BitChunkStoreRaw,
 {
     /// Returns the underlying chunks.
     pub fn chunks(&self) -> &S {
@@ -43,7 +43,7 @@ where
 
     /// Returns whether the set is empty.
     pub fn is_empty(&self) -> bool {
-        BitChunkIter::new(&self.chunks).all(|(_, chunk)| chunk == BitChunk::ALL_ZEROS)
+        BitChunkIter::new(&self.chunks).all(|(_, chunk)| chunk == BitChunkRaw::ALL_ZEROS)
     }
 
     /// Returns the number of elements in the set.
@@ -53,7 +53,7 @@ where
 
     /// Returns whether the set contains the key, or not.
     pub fn contains(&self, key: u64) -> bool {
-        let Some((of_chunk, in_chunk)) = BitChunk::split(key) else {
+        let Some((of_chunk, in_chunk)) = BitChunkRaw::split(key) else {
             return false;
         };
 
@@ -66,7 +66,7 @@ where
 
         while let Some((of_chunk, _)) = iter.next() {
             //  May only fail if the chunk isn't already `ALL_ZEROS`, in which case it doesn't matter.
-            let _ = iter.view_mut().set(of_chunk, BitChunk::ALL_ZEROS);
+            let _ = iter.view_mut().set(of_chunk, BitChunkRaw::ALL_ZEROS);
         }
     }
 
@@ -78,7 +78,7 @@ where
     /// -   `Ok(false)`: if the key was already present.
     /// -   `Err(_)`: if the key could not be inserted, and wasn't already present.
     pub fn insert(&mut self, key: u64) -> Result<bool, BitStoreError> {
-        let Some((of_chunk, in_chunk)) = BitChunk::split(key) else {
+        let Some((of_chunk, in_chunk)) = BitChunkRaw::split(key) else {
             return Err(BitStoreError);
         };
 
@@ -93,7 +93,7 @@ where
 
     /// Removes a key from the set, returning whether it is newly removed or not.
     pub fn remove(&mut self, key: u64) -> bool {
-        let Some((of_chunk, in_chunk)) = BitChunk::split(key) else {
+        let Some((of_chunk, in_chunk)) = BitChunkRaw::split(key) else {
             return false;
         };
 
