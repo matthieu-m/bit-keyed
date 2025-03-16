@@ -264,7 +264,7 @@ pub(super) mod shim {
         let ptr = slice.as_mut_ptr();
 
         //  Safety:
-        //  -   `ptr` was obtained from a `NonNull<[BitChunk]>` so it is non-null.
+        //  -   `ptr` was obtained from a `NonNull<[BitChunkRaw]>` so it is non-null.
         unsafe { NonNull::new_unchecked(ptr) }
     }
 } // mod shim

@@ -1,16 +1,16 @@
 //  See structs.
 
-use super::{BitChunk, BitChunkView, IndexOfChunk};
+use super::{BitChunkRaw, BitChunkViewRaw, IndexOfChunkRaw};
 
-/// Forward iterator over a `BitChunkView`.
+/// Forward iterator over a `BitChunkViewRaw`.
 pub struct BitChunkIter<V> {
-    of_chunk: Option<IndexOfChunk>,
+    of_chunk: Option<IndexOfChunkRaw>,
     view: V,
 }
 
 impl<V> BitChunkIter<V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
     /// Creates a new instance.
     pub fn new(view: V) -> Self {
@@ -32,9 +32,9 @@ where
 
 impl<V> Iterator for BitChunkIter<V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
-    type Item = (IndexOfChunk, BitChunk);
+    type Item = (IndexOfChunkRaw, BitChunkRaw);
 
     fn next(&mut self) -> Option<Self::Item> {
         let of_chunk = self.of_chunk?;
@@ -49,15 +49,15 @@ where
     }
 }
 
-/// Backward (reverse) iterator over a `BitChunkView`.
+/// Backward (reverse) iterator over a `BitChunkViewRaw`.
 pub struct BitChunkIterRev<V> {
-    of_chunk: Option<IndexOfChunk>,
+    of_chunk: Option<IndexOfChunkRaw>,
     view: V,
 }
 
 impl<V> BitChunkIterRev<V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
     /// Creates a new instance.
     pub fn new(view: V) -> Self {
@@ -79,9 +79,9 @@ where
 
 impl<V> Iterator for BitChunkIterRev<V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
-    type Item = (IndexOfChunk, BitChunk);
+    type Item = (IndexOfChunkRaw, BitChunkRaw);
 
     fn next(&mut self) -> Option<Self::Item> {
         let of_chunk = self.of_chunk?;
@@ -102,8 +102,8 @@ mod tests {
 
     #[test]
     fn empty() {
-        const EMPTY: [BitChunk; 0] = [];
-        const EXPECTED: &[BitChunk] = &[];
+        const EMPTY: [BitChunkRaw; 0] = [];
+        const EXPECTED: &[BitChunkRaw] = &[];
 
         assert_eq!(EXPECTED, collect(BitChunkIter::new(EMPTY)));
         assert_eq!(EXPECTED, collect(BitChunkIterRev::new(EMPTY)));
@@ -111,10 +111,10 @@ mod tests {
 
     #[test]
     fn single() {
-        const ONE: BitChunk = BitChunk(0b1001);
+        const ONE: BitChunkRaw = BitChunkRaw(0b1001);
 
-        const SINGLE: [BitChunk; 1] = [ONE];
-        const EXPECTED: &[BitChunk] = &[ONE];
+        const SINGLE: [BitChunkRaw; 1] = [ONE];
+        const EXPECTED: &[BitChunkRaw] = &[ONE];
 
         assert_eq!(EXPECTED, collect(BitChunkIter::new(SINGLE)));
         assert_eq!(EXPECTED, collect(BitChunkIterRev::new(SINGLE)));
@@ -122,21 +122,21 @@ mod tests {
 
     #[test]
     fn trio() {
-        const ONE: BitChunk = BitChunk(0b1001);
-        const TWO: BitChunk = BitChunk(0b0001);
-        const THREE: BitChunk = BitChunk(0b1000);
+        const ONE: BitChunkRaw = BitChunkRaw(0b1001);
+        const TWO: BitChunkRaw = BitChunkRaw(0b0001);
+        const THREE: BitChunkRaw = BitChunkRaw(0b1000);
 
-        const TRIO: [BitChunk; 3] = [ONE, TWO, THREE];
-        const EXPECTED_FORWARD: &[BitChunk] = &[ONE, TWO, THREE];
-        const EXPECTED_BACKWARD: &[BitChunk] = &[THREE, TWO, ONE];
+        const TRIO: [BitChunkRaw; 3] = [ONE, TWO, THREE];
+        const EXPECTED_FORWARD: &[BitChunkRaw] = &[ONE, TWO, THREE];
+        const EXPECTED_BACKWARD: &[BitChunkRaw] = &[THREE, TWO, ONE];
 
         assert_eq!(EXPECTED_FORWARD, collect(BitChunkIter::new(TRIO)));
         assert_eq!(EXPECTED_BACKWARD, collect(BitChunkIterRev::new(TRIO)));
     }
 
-    fn collect<I>(iter: I) -> Vec<BitChunk>
+    fn collect<I>(iter: I) -> Vec<BitChunkRaw>
     where
-        I: Iterator<Item = (IndexOfChunk, BitChunk)>,
+        I: Iterator<Item = (IndexOfChunkRaw, BitChunkRaw)>,
     {
         iter.map(|(_, c)| c).collect()
     }

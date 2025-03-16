@@ -2,34 +2,34 @@
 
 use core::mem;
 
-use crate::utils::{BitChunk, BitStoreError, IndexOfChunk};
+use crate::utils::{BitChunkRaw, BitStoreError, IndexOfChunkRaw};
 
 //
 //  API
 //
 
-/// A trait for read-only access to a collection of `BitChunk`.
+/// A trait for read-only access to a collection of `BitChunkRaw`.
 ///
-/// The trait is pre-implemented for `[BitChunk; N]`, and exists to allow for alternative representations, such as
+/// The trait is pre-implemented for `[BitChunkRaw; N]`, and exists to allow for alternative representations, such as
 /// compressed sets, or sparse sets.
-pub trait BitChunkView {
+pub trait BitChunkViewRaw {
     //
     //  Index access
     //
 
-    /// Returns the `BitChunk` at the given index.
+    /// Returns the `BitChunkRaw` at the given index.
     ///
     /// If `index` is unknown, an `ALL_ZEROS` chunk should be returned.
-    fn get(&self, index: IndexOfChunk) -> BitChunk;
+    fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw;
 
-    /// Returns the `BitChunk` at the given index.
+    /// Returns the `BitChunkRaw` at the given index.
     ///
     /// #   Safety
     ///
     /// The caller guarantees that `index` was either returned by a call to `self.first()`, `self.last()`,
     /// `self.next_after(...)`, or `self.next_before(...)`.
     #[inline]
-    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+    unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         self.get(index)
     }
 
@@ -41,50 +41,50 @@ pub trait BitChunkView {
     ///
     /// All chunks strictly before this index are guaranteed to be `ALL_ZEROS`, though no guarantee is made that the
     /// chunk at this index isn't `ALL_ZEROS` too.
-    fn first(&self) -> Option<IndexOfChunk>;
+    fn first(&self) -> Option<IndexOfChunkRaw>;
 
     /// Returns the last interesting index, if any.
     ///
     /// All chunks strictly after this index are guaranteed to be `ALL_ZEROS`, though no guarantee is made that the
     /// chunk at this index isn't `ALL_ZEROS` too.
-    fn last(&self) -> Option<IndexOfChunk>;
+    fn last(&self) -> Option<IndexOfChunkRaw>;
 
     /// Returns the next interesting index at or after `index`, if any.
     ///
     /// Returns `None` when all chunks at or after `index` are guaranteed to be `ALL_ZEROS`, though no guarantee is made
     /// that it returns `None` precisely when no further chunks have any set bit.
-    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk>;
+    fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw>;
 
     /// Returns the next interesting index at or before `index`, if any.
     ///
     /// Returns `None` when all chunks at or before `index` are guaranteed to be `ALL_ZEROS`, though no guarantee is
     /// made that it returns `None` precisely when no prior chunks have any set bit.
-    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk>;
+    fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw>;
 }
 
-/// A trait for write access to a collection of `BitChunk`.
+/// A trait for write access to a collection of `BitChunkRaw`.
 ///
-/// The trait is pre-implemented for `[BitChunk; N]`, and exists to allow for alternative representations, such as
+/// The trait is pre-implemented for `[BitChunkRaw; N]`, and exists to allow for alternative representations, such as
 /// compressed sets, or sparse sets.
-pub trait BitChunkStore: BitChunkView {
-    /// Sets the `BitChunk` at the given index.
+pub trait BitChunkStoreRaw: BitChunkViewRaw {
+    /// Sets the `BitChunkRaw` at the given index.
     ///
     /// On success, returns the previous chunk stored at `index`, or `ALL_ZEROS` if no such chunk existed. On error,
     /// `self` is left unchanged.
     ///
-    /// Errors may be either transient or permnanent. For example, if the backing store is `[BitChunk; 1]`, then any
-    /// attempt to store at index `64` or greater is doomed to fail, whereas if the store is `Vec<BitChunk>`, then any
+    /// Errors may be either transient or permnanent. For example, if the backing store is `[BitChunkRaw; 1]`, then any
+    /// attempt to store at index `64` or greater is doomed to fail, whereas if the store is `Vec<BitChunkRaw>`, then any
     /// attempt to store beyond the current capacity of the vector may fail if the memory allocation fails at this point
     /// in time.
-    fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError>;
+    fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError>;
 
-    /// Sets the `BitChunk` at the given index.
+    /// Sets the `BitChunkRaw` at the given index.
     ///
     /// #   Safety
     ///
     /// `index` must be the index of a non `ALL_ZEROS` chunk, prior to this call.
     #[inline]
-    unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+    unsafe fn set_unchecked(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) {
         let _result = self.set(index, chunk);
 
         debug_assert!(_result.is_ok());
@@ -95,122 +95,124 @@ pub trait BitChunkStore: BitChunkView {
 ///
 /// #   Safety
 ///
-/// -   Faithful: implementations guarantee that `self.get(index)` return an equal `BitChunk` to the last for which
+/// -   Faithful: implementations guarantee that `self.get(index)` return an equal `BitChunkRaw` to the last for which
 ///     `self.set(index, ...)` succeeded.
 /// -   One-pass: implementations guarantee that `self.next_after(index)`, resp. `self.next_before(index)`, return an
 ///     index that is greater than or equal to `index`, resp. less than or equal to `index`.
-pub unsafe trait TrustedBitChunkStore {}
+pub unsafe trait TrustedBitChunkStoreRaw {}
 
 //
 //  Implementation for references.
 //
 
-impl<V> BitChunkView for &V
+impl<V> BitChunkViewRaw for &V
 where
-    V: BitChunkView,
+    V: ?Sized + BitChunkViewRaw,
 {
-    fn get(&self, index: IndexOfChunk) -> BitChunk {
+    fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         (**self).get(index)
     }
 
-    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+    unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         //  Safety: forwarded.
         unsafe { (**self).get_unchecked(index) }
     }
 
-    fn first(&self) -> Option<IndexOfChunk> {
+    fn first(&self) -> Option<IndexOfChunkRaw> {
         (**self).first()
     }
 
-    fn last(&self) -> Option<IndexOfChunk> {
+    fn last(&self) -> Option<IndexOfChunkRaw> {
         (**self).last()
     }
 
-    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         (**self).next_after(index)
     }
 
-    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         (**self).next_before(index)
     }
 }
 
 //  Safety: forward.
-unsafe impl<V> TrustedBitChunkStore for &V where V: BitChunkView + TrustedBitChunkStore {}
+unsafe impl<V> TrustedBitChunkStoreRaw for &V where V: ?Sized + BitChunkViewRaw + TrustedBitChunkStoreRaw {}
 
-impl<V> BitChunkView for &mut V
+impl<V> BitChunkViewRaw for &mut V
 where
-    V: BitChunkView,
+    V: ?Sized + BitChunkViewRaw,
 {
-    fn get(&self, index: IndexOfChunk) -> BitChunk {
+    fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         (**self).get(index)
     }
 
-    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+    unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         //  Safety: forwarded.
         unsafe { (**self).get_unchecked(index) }
     }
 
-    fn first(&self) -> Option<IndexOfChunk> {
+    fn first(&self) -> Option<IndexOfChunkRaw> {
         (**self).first()
     }
 
-    fn last(&self) -> Option<IndexOfChunk> {
+    fn last(&self) -> Option<IndexOfChunkRaw> {
         (**self).last()
     }
 
-    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         (**self).next_after(index)
     }
 
-    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         (**self).next_before(index)
     }
 }
 
-impl<V> BitChunkStore for &mut V
+impl<V> BitChunkStoreRaw for &mut V
 where
-    V: BitChunkStore,
+    V: ?Sized + BitChunkStoreRaw,
 {
-    fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+    fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
         (**self).set(index, chunk)
     }
 
-    unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+    unsafe fn set_unchecked(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) {
         //  Safety: forward.
         unsafe { (**self).set_unchecked(index, chunk) };
     }
 }
 
 //  Safety: forward.
-unsafe impl<V> TrustedBitChunkStore for &mut V where V: BitChunkStore + TrustedBitChunkStore {}
+unsafe impl<V> TrustedBitChunkStoreRaw for &mut V where V: ?Sized + BitChunkStoreRaw + TrustedBitChunkStoreRaw {}
 
 //
-//  Implementation for [BitChunk; N].
+//  Implementation for [BitChunkRaw; N].
 //
 
 mod array {
     use super::*;
 
-    impl<const N: usize> BitChunkView for [BitChunk; N] {
+    impl<const N: usize> BitChunkViewRaw for [BitChunkRaw; N] {
         //
         //  Index access
         //
 
         #[inline]
-        fn get(&self, index: IndexOfChunk) -> BitChunk {
-            <[BitChunk]>::get(self, index.0).copied().unwrap_or(BitChunk::ALL_ZEROS)
+        fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
+            <[BitChunkRaw]>::get(self, index.0)
+                .copied()
+                .unwrap_or(BitChunkRaw::ALL_ZEROS)
         }
 
         #[inline]
-        unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+        unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
             debug_assert!(index.0 < self.len(), "{} >= {}", index.0, self.len());
 
             //  Safety:
             //  -   `index.0` is in-bounds, as the caller guarantees that `index` was returned by `self.first()`,
             //      `self.last()`, `self.next_after(...)`, or `self.next_before(...)`, and those methods only return
             //      in-bounds indexes.
-            unsafe { *<[BitChunk]>::get_unchecked(self, index.0) }
+            unsafe { *<[BitChunkRaw]>::get_unchecked(self, index.0) }
         }
 
         //
@@ -218,31 +220,31 @@ mod array {
         //
 
         #[inline]
-        fn first(&self) -> Option<IndexOfChunk> {
-            (!self.is_empty()).then_some(IndexOfChunk(0))
+        fn first(&self) -> Option<IndexOfChunkRaw> {
+            (!self.is_empty()).then_some(IndexOfChunkRaw(0))
         }
 
         #[inline]
-        fn last(&self) -> Option<IndexOfChunk> {
-            self.len().checked_sub(1).map(IndexOfChunk)
+        fn last(&self) -> Option<IndexOfChunkRaw> {
+            self.len().checked_sub(1).map(IndexOfChunkRaw)
         }
 
         #[inline]
-        fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             //  Safety:
             //  -   `get_unchecked` relies on this method only returning in-bounds indexes.
             (index.0 < N).then_some(index)
         }
 
         #[inline]
-        fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             Some(index)
         }
     }
 
-    impl<const N: usize> BitChunkStore for [BitChunk; N] {
+    impl<const N: usize> BitChunkStoreRaw for [BitChunkRaw; N] {
         #[inline]
-        fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+        fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
             let slot = self.get_mut(index.0).ok_or(BitStoreError)?;
 
             Ok(mem::replace(slot, chunk))
@@ -251,10 +253,74 @@ mod array {
 
     //  Safety:
     //
-    //  -   The implementation of `BitChunkView` and `BitChunkStore` is faithful.
-    //  -   The implementation of `BitChunkView` is one-pass.
-    unsafe impl<const N: usize> TrustedBitChunkStore for [BitChunk; N] {}
+    //  -   The implementation of `BitChunkViewRaw` and `BitChunkStoreRaw` is faithful.
+    //  -   The implementation of `BitChunkViewRaw` is one-pass.
+    unsafe impl<const N: usize> TrustedBitChunkStoreRaw for [BitChunkRaw; N] {}
 } // mod array
+
+//
+//  Implementation for [BitChunkRaw]
+//
+
+mod slice {
+    use super::*;
+
+    impl BitChunkViewRaw for [BitChunkRaw] {
+        //
+        //  Index access
+        //
+
+        #[inline]
+        fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
+            <[BitChunkRaw]>::get(self, index.0)
+                .copied()
+                .unwrap_or(BitChunkRaw::ALL_ZEROS)
+        }
+
+        #[inline]
+        unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
+            debug_assert!(index.0 < self.len(), "{} >= {}", index.0, self.len());
+
+            //  Safety:
+            //  -   `index.0` is in-bounds, as the caller guarantees that `index` was returned by `self.first()`,
+            //      `self.last()`, `self.next_after(...)`, or `self.next_before(...)`, and those methods only return
+            //      in-bounds indexes.
+            unsafe { *<[BitChunkRaw]>::get_unchecked(self, index.0) }
+        }
+
+        //
+        //  Index iteration
+        //
+
+        #[inline]
+        fn first(&self) -> Option<IndexOfChunkRaw> {
+            (!self.is_empty()).then_some(IndexOfChunkRaw(0))
+        }
+
+        #[inline]
+        fn last(&self) -> Option<IndexOfChunkRaw> {
+            self.len().checked_sub(1).map(IndexOfChunkRaw)
+        }
+
+        #[inline]
+        fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
+            //  Safety:
+            //  -   `get_unchecked` relies on this method only returning in-bounds indexes.
+            (index.0 < self.len()).then_some(index)
+        }
+
+        #[inline]
+        fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
+            Some(index)
+        }
+    }
+
+    //  Safety:
+    //
+    //  -   The implementation of `BitChunkViewRaw` and `BitChunkStoreRaw` is faithful.
+    //  -   The implementation of `BitChunkViewRaw` is one-pass.
+    unsafe impl TrustedBitChunkStoreRaw for [BitChunkRaw] {}
+} // mod slice
 
 //
 //  DynamicBitChunkStore & Implementation.
@@ -266,13 +332,18 @@ mod array {
 //  2.  `unsafe` is viral up to module boundaries, so best keep it contained.
 #[cfg(feature = "alloc")]
 pub(crate) mod dynamic {
-    use core::{alloc::Layout, cmp, fmt, ptr::NonNull};
+    use core::{
+        alloc::Layout,
+        cmp, fmt,
+        hash::{Hash, Hasher},
+        ptr::NonNull,
+    };
 
     use crate::utils::alloc::{Allocator, Global};
 
     use super::*;
 
-    /// Heap allocated implementation of a `BitChunkStore` and related traits.
+    /// Heap allocated implementation of a `BitChunkStoreRaw` and related traits.
     pub struct DynamicBitChunkStore<A = Global>
     where
         A: Allocator,
@@ -281,7 +352,7 @@ pub(crate) mod dynamic {
         //  -   Empty Dangling: if an empty slice, it is dangling.
         //  -   Self-Allocated: if not empty, it is allocated by `Self::allocate`.
         //  -   Initialized: if not empty, all `self.0.len()` items of the slice are initialized.
-        ptr: NonNull<[BitChunk]>,
+        ptr: NonNull<[BitChunkRaw]>,
         allocator: A,
     }
 
@@ -311,7 +382,44 @@ pub(crate) mod dynamic {
     }
 
     //
-    //  BitChunkView/Store (inherent)
+    //  BitSet (inherent)
+    //
+
+    impl<A> DynamicBitChunkStore<A>
+    where
+        A: Allocator,
+    {
+        /// Returns a reference to the underlying slice of chunks.
+        #[inline]
+        pub const fn chunks(&self) -> &[BitChunkRaw] {
+            if self.ptr.is_empty() {
+                &[]
+            } else {
+                //  Safety:
+                //  -   The pointer is sufficiently aligned, as per the Safety Invariants.
+                //  -   The pointer is currently allocated, as the slice is non-empty, as per the Safety Invariants.
+                //  -   No mutable borrow is accessible, as `self` could be borrowed.
+                unsafe { self.ptr.as_ref() }
+            }
+        }
+
+        /// Returns a mutable reference to the underlying slice of chunks.
+        #[inline]
+        pub const fn chunks_mut(&mut self) -> &mut [BitChunkRaw] {
+            if self.ptr.is_empty() {
+                &mut []
+            } else {
+                //  Safety:
+                //  -   The pointer is sufficiently aligned, as per the Safety Invariants.
+                //  -   The pointer is currently allocated, as the slice is non-empty, as per the Safety Invariants.
+                //  -   No borrow is accessible, as `self` could be mutably borrowed.
+                unsafe { self.ptr.as_mut() }
+            }
+        }
+    }
+
+    //
+    //  BitChunkViewRaw/Store (inherent)
     //
 
     impl<A> DynamicBitChunkStore<A>
@@ -322,29 +430,29 @@ pub(crate) mod dynamic {
         //  Index access
         //
 
-        /// Returns the `BitChunk` at the given index.
+        /// Returns the `BitChunkRaw` at the given index.
         ///
         /// If `index` is unknown, an `ALL_ZEROS` chunk should be returned.
         #[inline]
-        pub fn get(&self, index: IndexOfChunk) -> BitChunk {
-            self.as_slice().get(index.0).copied().unwrap_or(BitChunk::ALL_ZEROS)
+        pub fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
+            self.chunks().get(index.0).copied().unwrap_or(BitChunkRaw::ALL_ZEROS)
         }
 
-        /// Returns the `BitChunk` at the given index.
+        /// Returns the `BitChunkRaw` at the given index.
         ///
         /// #   Safety
         ///
         /// The caller guarantees that `index` was either returned by a call to `self.first()`, `self.last()`,
         /// `self.next_after(...)`, or `self.next_before(...)`.
         #[inline]
-        pub unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+        pub unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
             debug_assert!(index.0 < self.ptr.len(), "{} >= {}", index.0, self.ptr.len());
 
             //  Safety:
             //  -   `index.0` is in-bounds, as the caller guarantees that `index` was returned by `self.first()`,
             //      `self.last()`, `self.next_after(...)`, or `self.next_before(...)`, and those methods only return
             //      in-bounds indexes.
-            unsafe { *self.as_slice().get_unchecked(index.0) }
+            unsafe { *self.chunks().get_unchecked(index.0) }
         }
 
         //
@@ -356,8 +464,8 @@ pub(crate) mod dynamic {
         /// All chunks strictly before this index are guaranteed to be `ALL_ZEROS`, though no guarantee is made that the
         /// chunk at this index isn't `ALL_ZEROS` too.
         #[inline]
-        pub fn first(&self) -> Option<IndexOfChunk> {
-            (!self.ptr.is_empty()).then_some(IndexOfChunk(0))
+        pub fn first(&self) -> Option<IndexOfChunkRaw> {
+            (!self.ptr.is_empty()).then_some(IndexOfChunkRaw(0))
         }
 
         /// Returns the last interesting index, if any.
@@ -365,8 +473,8 @@ pub(crate) mod dynamic {
         /// All chunks strictly after this index are guaranteed to be `ALL_ZEROS`, though no guarantee is made that the
         /// chunk at this index isn't `ALL_ZEROS` too.
         #[inline]
-        pub fn last(&self) -> Option<IndexOfChunk> {
-            self.ptr.len().checked_sub(1).map(IndexOfChunk)
+        pub fn last(&self) -> Option<IndexOfChunkRaw> {
+            self.ptr.len().checked_sub(1).map(IndexOfChunkRaw)
         }
 
         /// Returns the next interesting index at or after `index`, if any.
@@ -374,7 +482,7 @@ pub(crate) mod dynamic {
         /// Returns `None` when all chunks at or after `index` are guaranteed to be `ALL_ZEROS`, though no guarantee is made
         /// that it returns `None` precisely when no further chunks have any set bit.
         #[inline]
-        pub fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        pub fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             //  Safety:
             //  -   `get_unchecked` relies on this method only returning in-bounds indexes.
             (index.0 < self.ptr.len()).then_some(index)
@@ -385,48 +493,48 @@ pub(crate) mod dynamic {
         /// Returns `None` when all chunks at or before `index` are guaranteed to be `ALL_ZEROS`, though no guarantee is
         /// made that it returns `None` precisely when no prior chunks have any set bit.
         #[inline]
-        pub fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        pub fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             Some(index)
         }
 
-        /// Sets the `BitChunk` at the given index.
+        /// Sets the `BitChunkRaw` at the given index.
         ///
         /// On success, returns the previous chunk stored at `index`, or `ALL_ZEROS` if no such chunk existed. On error,
         /// `self` is left unchanged.
         ///
-        /// Errors may be either transient or permnanent. For example, if the backing store is `[BitChunk; 1]`, then any
-        /// attempt to store at index `64` or greater is doomed to fail, whereas if the store is `Vec<BitChunk>`, then any
+        /// Errors may be either transient or permnanent. For example, if the backing store is `[BitChunkRaw; 1]`, then any
+        /// attempt to store at index `64` or greater is doomed to fail, whereas if the store is `Vec<BitChunkRaw>`, then any
         /// attempt to store beyond the current capacity of the vector may fail if the memory allocation fails at this point
         /// in time.
         #[inline]
-        pub fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
-            let Some(slot) = self.as_mut_slice().get_mut(index.0) else {
+        pub fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
+            let Some(slot) = self.chunks_mut().get_mut(index.0) else {
                 return self.set_slow(index, chunk);
             };
 
             Ok(mem::replace(slot, chunk))
         }
 
-        /// Sets the `BitChunk` at the given index.
+        /// Sets the `BitChunkRaw` at the given index.
         ///
         /// #   Safety
         ///
         /// `index` must be the index of a non `ALL_ZEROS` chunk, prior to this call.
         #[inline]
-        unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+        unsafe fn set_unchecked(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) {
             //  Safety:
             //  -   `index` is within bounds, as per pre-condition.
-            let slot = unsafe { self.as_mut_slice().get_unchecked_mut(index.0) };
+            let slot = unsafe { self.chunks_mut().get_unchecked_mut(index.0) };
 
             *slot = chunk;
         }
     }
 
     //
-    //  BitChunkView/Store (trait)
+    //  BitChunkViewRaw/Store (trait)
     //
 
-    impl<A> BitChunkView for DynamicBitChunkStore<A>
+    impl<A> BitChunkViewRaw for DynamicBitChunkStore<A>
     where
         A: Allocator,
     {
@@ -435,12 +543,12 @@ pub(crate) mod dynamic {
         //
 
         #[inline]
-        fn get(&self, index: IndexOfChunk) -> BitChunk {
+        fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
             self.get(index)
         }
 
         #[inline]
-        unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+        unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
             //  Safety:
             //  -   Forward pre-conditions.
             unsafe { self.get_unchecked(index) }
@@ -451,37 +559,37 @@ pub(crate) mod dynamic {
         //
 
         #[inline]
-        fn first(&self) -> Option<IndexOfChunk> {
+        fn first(&self) -> Option<IndexOfChunkRaw> {
             self.first()
         }
 
         #[inline]
-        fn last(&self) -> Option<IndexOfChunk> {
+        fn last(&self) -> Option<IndexOfChunkRaw> {
             self.last()
         }
 
         #[inline]
-        fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             self.next_after(index)
         }
 
         #[inline]
-        fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+        fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
             self.next_before(index)
         }
     }
 
-    impl<A> BitChunkStore for DynamicBitChunkStore<A>
+    impl<A> BitChunkStoreRaw for DynamicBitChunkStore<A>
     where
         A: Allocator,
     {
         #[inline]
-        fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+        fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
             self.set(index, chunk)
         }
 
         #[inline]
-        unsafe fn set_unchecked(&mut self, index: IndexOfChunk, chunk: BitChunk) {
+        unsafe fn set_unchecked(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) {
             //  Safety: forward.
             unsafe { self.set_unchecked(index, chunk) }
         }
@@ -489,9 +597,9 @@ pub(crate) mod dynamic {
 
     //  Safety:
     //
-    //  -   The implementation of `BitChunkView` and `BitChunkStore` is faithful.
-    //  -   The implementation of `BitChunkView` is one-pass.
-    unsafe impl<A> TrustedBitChunkStore for DynamicBitChunkStore<A> where A: Allocator {}
+    //  -   The implementation of `BitChunkViewRaw` and `BitChunkStoreRaw` is faithful.
+    //  -   The implementation of `BitChunkViewRaw` is one-pass.
+    unsafe impl<A> TrustedBitChunkStoreRaw for DynamicBitChunkStore<A> where A: Allocator {}
 
     //
     //  Common traits
@@ -532,7 +640,7 @@ pub(crate) mod dynamic {
         A: Allocator,
     {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-            f.debug_tuple("DynamicBitChunkStore").field(&self.as_slice()).finish()
+            f.debug_tuple("DynamicBitChunkStore").field(&self.chunks()).finish()
         }
     }
 
@@ -547,6 +655,18 @@ pub(crate) mod dynamic {
 
     impl<A> Eq for DynamicBitChunkStore<A> where A: Allocator {}
 
+    impl<A> Hash for DynamicBitChunkStore<A>
+    where
+        A: Allocator,
+    {
+        fn hash<H>(&self, state: &mut H)
+        where
+            H: Hasher,
+        {
+            self.chunks().hash(state);
+        }
+    }
+
     impl<A> Ord for DynamicBitChunkStore<A>
     where
         A: Allocator,
@@ -556,10 +676,10 @@ pub(crate) mod dynamic {
                 return other.cmp(self).reverse();
             }
 
-            let (head, tail) = other.as_slice().split_at_checked(self.ptr.len()).unwrap_or((&[], &[]));
+            let (head, tail) = other.chunks().split_at_checked(self.ptr.len()).unwrap_or((&[], &[]));
 
-            self.as_slice().cmp(head).then_with(|| {
-                let all_zeroes = tail.iter().all(|c| *c == BitChunk::ALL_ZEROS);
+            self.chunks().cmp(head).then_with(|| {
+                let all_zeroes = tail.iter().all(|c| *c == BitChunkRaw::ALL_ZEROS);
 
                 if all_zeroes {
                     cmp::Ordering::Equal
@@ -579,9 +699,9 @@ pub(crate) mod dynamic {
                 return other.eq(self);
             }
 
-            let (head, tail) = other.as_slice().split_at_checked(self.ptr.len()).unwrap_or((&[], &[]));
+            let (head, tail) = other.chunks().split_at_checked(self.ptr.len()).unwrap_or((&[], &[]));
 
-            self.as_slice() == head && tail.iter().all(|c| *c == BitChunk::ALL_ZEROS)
+            self.chunks() == head && tail.iter().all(|c| *c == BitChunkRaw::ALL_ZEROS)
         }
     }
 
@@ -595,7 +715,7 @@ pub(crate) mod dynamic {
     }
 
     //  Safety:
-    //  -   Just like a `Vec<BitChunk, A>`.
+    //  -   Just like a `Vec<BitChunkRaw, A>`.
     unsafe impl<A> Send for DynamicBitChunkStore<A> where A: Allocator + Send {}
 
     unsafe impl<A> Sync for DynamicBitChunkStore<A> where A: Allocator {}
@@ -617,9 +737,9 @@ pub(crate) mod dynamic {
         #[inline(never)]
         unsafe fn clone_raw(
             allocator: &A,
-            old: NonNull<[BitChunk]>,
+            old: NonNull<[BitChunkRaw]>,
             n: usize,
-        ) -> Result<NonNull<[BitChunk]>, BitStoreError> {
+        ) -> Result<NonNull<[BitChunkRaw]>, BitStoreError> {
             let min_size = cmp::max(old.len(), n);
 
             let new = Self::allocate(allocator, min_size)?;
@@ -644,34 +764,8 @@ pub(crate) mod dynamic {
             Ok(new)
         }
 
-        #[inline]
-        const fn as_slice(&self) -> &[BitChunk] {
-            if self.ptr.is_empty() {
-                &[]
-            } else {
-                //  Safety:
-                //  -   The pointer is sufficiently aligned, as per the Safety Invariants.
-                //  -   The pointer is currently allocated, as the slice is non-empty, as per the Safety Invariants.
-                //  -   No mutable borrow is accessible, as `self` could be borrowed.
-                unsafe { self.ptr.as_ref() }
-            }
-        }
-
-        #[inline]
-        const fn as_mut_slice(&mut self) -> &mut [BitChunk] {
-            if self.ptr.is_empty() {
-                &mut []
-            } else {
-                //  Safety:
-                //  -   The pointer is sufficiently aligned, as per the Safety Invariants.
-                //  -   The pointer is currently allocated, as the slice is non-empty, as per the Safety Invariants.
-                //  -   No borrow is accessible, as `self` could be mutably borrowed.
-                unsafe { self.ptr.as_mut() }
-            }
-        }
-
         #[inline(never)]
-        fn set_slow(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+        fn set_slow(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
             debug_assert!(index.0 >= self.ptr.len(), "spurious");
 
             let min_size = index.0.checked_add(1).ok_or(BitStoreError)?;
@@ -683,15 +777,15 @@ pub(crate) mod dynamic {
             self.ptr = unsafe { Self::grow(&self.allocator, self.ptr, min_size)? };
 
             //  Safety:
-            //  -   `index.0` is strictly less than `self.as_mut_slice().len()`, as per `clone_raw`.
-            let slot = unsafe { self.as_mut_slice().get_unchecked_mut(index.0) };
+            //  -   `index.0` is strictly less than `self.chunks_mut().len()`, as per `clone_raw`.
+            let slot = unsafe { self.chunks_mut().get_unchecked_mut(index.0) };
 
             //  Must be all zeros, since `index.0` is strictly greater than the original `self.ptr.len()`.
-            debug_assert_eq!(BitChunk::ALL_ZEROS, *slot);
+            debug_assert_eq!(BitChunkRaw::ALL_ZEROS, *slot);
 
             *slot = chunk;
 
-            Ok(BitChunk::ALL_ZEROS)
+            Ok(BitChunkRaw::ALL_ZEROS)
         }
     }
 
@@ -706,13 +800,13 @@ pub(crate) mod dynamic {
         fn layout(n: usize) -> Result<Layout, BitStoreError> {
             debug_assert!(n > 0);
 
-            Layout::array::<BitChunk>(n).map_err(|_| BitStoreError)
+            Layout::array::<BitChunkRaw>(n).map_err(|_| BitStoreError)
         }
 
         //  #   Safety
         //
         //  -   On success, the resulting pointer satisfies the Safety Invariants.
-        fn allocate(allocator: &A, n: usize) -> Result<NonNull<[BitChunk]>, BitStoreError> {
+        fn allocate(allocator: &A, n: usize) -> Result<NonNull<[BitChunkRaw]>, BitStoreError> {
             let n = n.checked_next_power_of_two().ok_or(BitStoreError)?;
 
             let layout = Self::layout(n)?;
@@ -733,9 +827,9 @@ pub(crate) mod dynamic {
         //  On success, the resulting pointer satisfies the Safety Invariants.
         unsafe fn grow(
             allocator: &A,
-            old: NonNull<[BitChunk]>,
+            old: NonNull<[BitChunkRaw]>,
             n: usize,
-        ) -> Result<NonNull<[BitChunk]>, BitStoreError> {
+        ) -> Result<NonNull<[BitChunkRaw]>, BitStoreError> {
             if old.is_empty() {
                 return Self::allocate(allocator, n);
             }
@@ -768,13 +862,13 @@ pub(crate) mod dynamic {
         //
         //  -   Liveness: `ptr` is currently allocated, unless it's empty.
         //  -   Allocator: `ptr` was allocated by `Self::allocate`, unless it empty.
-        unsafe fn deallocate(allocator: &A, ptr: NonNull<[BitChunk]>) {
+        unsafe fn deallocate(allocator: &A, ptr: NonNull<[BitChunkRaw]>) {
             //  #   Safety
             //
             //  -   Liveness: `ptr` is currently allocated.
             //  -   Allocator: `ptr` was allocated by `Self::allocate`.
             #[inline(never)]
-            unsafe fn do_deallocate<A>(allocator: &A, ptr: NonNull<[BitChunk]>)
+            unsafe fn do_deallocate<A>(allocator: &A, ptr: NonNull<[BitChunkRaw]>)
             where
                 A: Allocator,
             {
@@ -838,7 +932,7 @@ mod dynamic_tests {
     fn empty() {
         let store = DynamicBitChunkStore::default();
 
-        assert_eq!(BitChunk::ALL_ZEROS, store.get(IndexOfChunk(0)));
+        assert_eq!(BitChunkRaw::ALL_ZEROS, store.get(IndexOfChunkRaw(0)));
 
         assert_eq!(None, store.first());
         assert_eq!(None, store.last());
@@ -846,56 +940,66 @@ mod dynamic_tests {
 
     #[test]
     fn single() {
-        const SPECIAL: BitChunk = BitChunk(0b1001);
+        const SPECIAL: BitChunkRaw = BitChunkRaw(0b1001);
         const SPECIAL_INDEX: usize = 3;
 
         let mut store = DynamicBitChunkStore::default();
 
-        let previous = store.set(IndexOfChunk(SPECIAL_INDEX), SPECIAL).expect("success");
+        let previous = store.set(IndexOfChunkRaw(SPECIAL_INDEX), SPECIAL).expect("success");
 
-        assert_eq!(BitChunk::ALL_ZEROS, previous);
+        assert_eq!(BitChunkRaw::ALL_ZEROS, previous);
 
         assert_elements(
             &store,
-            &[BitChunk::ALL_ZEROS, BitChunk::ALL_ZEROS, BitChunk::ALL_ZEROS, SPECIAL],
+            &[
+                BitChunkRaw::ALL_ZEROS,
+                BitChunkRaw::ALL_ZEROS,
+                BitChunkRaw::ALL_ZEROS,
+                SPECIAL,
+            ],
         );
     }
 
     #[test]
     fn clone() {
-        const SPECIAL: BitChunk = BitChunk(0b1001);
+        const SPECIAL: BitChunkRaw = BitChunkRaw(0b1001);
         const SPECIAL_INDEX: usize = 3;
 
         let mut store = DynamicBitChunkStore::default();
 
-        store.set(IndexOfChunk(SPECIAL_INDEX), SPECIAL).expect("success");
+        store.set(IndexOfChunkRaw(SPECIAL_INDEX), SPECIAL).expect("success");
 
         let clone = store.clone();
 
         assert_elements(
             &clone,
-            &[BitChunk::ALL_ZEROS, BitChunk::ALL_ZEROS, BitChunk::ALL_ZEROS, SPECIAL],
+            &[
+                BitChunkRaw::ALL_ZEROS,
+                BitChunkRaw::ALL_ZEROS,
+                BitChunkRaw::ALL_ZEROS,
+                SPECIAL,
+            ],
         );
     }
 
     #[track_caller]
-    fn assert_elements(store: &DynamicBitChunkStore, expected: &[BitChunk]) {
-        assert_eq!(Some(IndexOfChunk(0)), store.first(), "first");
-        assert_eq!(Some(IndexOfChunk(expected.len() - 1)), store.last(), "last");
+    fn assert_elements(store: &DynamicBitChunkStore, expected: &[BitChunkRaw]) {
+        assert_eq!(Some(IndexOfChunkRaw(0)), store.first(), "first");
+        assert_eq!(Some(IndexOfChunkRaw(expected.len() - 1)), store.last(), "last");
 
         for (index, chunk) in expected.iter().enumerate() {
-            assert_eq!(*chunk, store.get(IndexOfChunk(index)), "get({index})");
+            assert_eq!(*chunk, store.get(IndexOfChunkRaw(index)), "get({index})");
         }
 
         for i in 0..expected.len() {
             assert_eq!(
-                Some(IndexOfChunk(i)),
-                store.next_before(IndexOfChunk(i)),
+                Some(IndexOfChunkRaw(i)),
+                store.next_before(IndexOfChunkRaw(i)),
                 "next_before({i})"
             );
             assert_eq!(
-                Some(IndexOfChunk(i)),
-                store.next_after(IndexOfChunk(i)),
+                Some(IndexOfChunkRaw(i)),
+                store.next_after(IndexOfChunkRaw(i)),
                 "next_after({i})"
             );
         }

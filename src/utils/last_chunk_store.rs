@@ -2,20 +2,20 @@
 
 use core::cell::Cell;
 
-use super::{BitChunk, BitChunkStore, BitChunkView, BitStoreError, IndexOfChunk, TrustedBitChunkStore};
+use super::{BitChunkRaw, BitChunkStoreRaw, BitChunkViewRaw, BitStoreError, IndexOfChunkRaw, TrustedBitChunkStoreRaw};
 
 /// Cache of the last accessed chunk.
 ///
 /// Implementers of ChunkView/ChunkStore for which accesses are expensive can use this simple cache to amortize the cost
 /// of access. This is mostly useful for iteration.
 #[derive(Debug)]
-pub struct LastBitChunkView<'a, V> {
+pub struct LastBitChunkViewRaw<'a, V> {
     cache: CacheView,
     view: &'a V,
 }
 
-impl<'a, V> LastBitChunkView<'a, V> {
-    /// Returns a new instance of the LastBitChunkView.
+impl<'a, V> LastBitChunkViewRaw<'a, V> {
+    /// Returns a new instance of the LastBitChunkViewRaw.
     pub fn new(view: &'a V) -> Self {
         let cache = CacheView::default();
 
@@ -23,7 +23,7 @@ impl<'a, V> LastBitChunkView<'a, V> {
     }
 }
 
-impl<'a, V> Clone for LastBitChunkView<'a, V> {
+impl<'a, V> Clone for LastBitChunkViewRaw<'a, V> {
     fn clone(&self) -> Self {
         let cache = self.cache.clone();
         let view = self.view;
@@ -32,58 +32,58 @@ impl<'a, V> Clone for LastBitChunkView<'a, V> {
     }
 }
 
-impl<'a, V> BitChunkView for LastBitChunkView<'a, V>
+impl<'a, V> BitChunkViewRaw for LastBitChunkViewRaw<'a, V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
-    fn get(&self, index: IndexOfChunk) -> BitChunk {
+    fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         self.cache.get(index, self.view)
     }
 
     #[inline]
-    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+    unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         //  Safety:
         //  -   `index` was returned by a call to either of `self.first()`, `self.last()`, `self.next_after(...)`, or
         //      `self.next_before(...)`, as per pre-conditions.
         unsafe { self.cache.get_unchecked(index, self.view) }
     }
 
-    fn first(&self) -> Option<IndexOfChunk> {
+    fn first(&self) -> Option<IndexOfChunkRaw> {
         self.view.first()
     }
 
-    fn last(&self) -> Option<IndexOfChunk> {
+    fn last(&self) -> Option<IndexOfChunkRaw> {
         self.view.last()
     }
 
-    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         self.view.next_after(index)
     }
 
-    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         self.view.next_before(index)
     }
 }
 
 //  #   Safety
 //
-//  -   Faithful: `CacheView` guarantees that the `BitChunk` returned is a copy of the one matching `V`, and `V` is
+//  -   Faithful: `CacheView` guarantees that the `BitChunkRaw` returned is a copy of the one matching `V`, and `V` is
 //      immutable for the lifetime of `CacheView`.
 //  -   One-pass: inherited from `V`.
-unsafe impl<'a, V> TrustedBitChunkStore for LastBitChunkView<'a, V> where V: TrustedBitChunkStore {}
+unsafe impl<'a, V> TrustedBitChunkStoreRaw for LastBitChunkViewRaw<'a, V> where V: TrustedBitChunkStoreRaw {}
 
 /// Cache of the last accessed chunk.
 ///
 /// Implementers of ChunkView/ChunkStore for which accesses are expensive can use this simple cache to amortize the cost
 /// of access. This is mostly useful for iteration.
 #[derive(Debug)]
-pub struct LastBitChunkStore<'a, V> {
+pub struct LastBitChunkStoreRaw<'a, V> {
     cache: CacheView,
     view: &'a mut V,
 }
 
-impl<'a, V> LastBitChunkStore<'a, V> {
-    /// Returns a new instance of the LastBitChunkStore.
+impl<'a, V> LastBitChunkStoreRaw<'a, V> {
+    /// Returns a new instance of the LastBitChunkStoreRaw.
     pub fn new(view: &'a mut V) -> Self {
         let cache = CacheView::default();
 
@@ -91,53 +91,53 @@ impl<'a, V> LastBitChunkStore<'a, V> {
     }
 }
 
-impl<'a, V> BitChunkView for LastBitChunkStore<'a, V>
+impl<'a, V> BitChunkViewRaw for LastBitChunkStoreRaw<'a, V>
 where
-    V: BitChunkView,
+    V: BitChunkViewRaw,
 {
-    fn get(&self, index: IndexOfChunk) -> BitChunk {
+    fn get(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         self.cache.get(index, self.view)
     }
 
     #[inline]
-    unsafe fn get_unchecked(&self, index: IndexOfChunk) -> BitChunk {
+    unsafe fn get_unchecked(&self, index: IndexOfChunkRaw) -> BitChunkRaw {
         //  Safety:
         //  -   `index` was returned by a call to either of `self.first()`, `self.last()`, `self.next_after(...)`, or
         //      `self.next_before(...)`, as per pre-conditions.
         unsafe { self.cache.get_unchecked(index, self.view) }
     }
 
-    fn first(&self) -> Option<IndexOfChunk> {
+    fn first(&self) -> Option<IndexOfChunkRaw> {
         self.view.first()
     }
 
-    fn last(&self) -> Option<IndexOfChunk> {
+    fn last(&self) -> Option<IndexOfChunkRaw> {
         self.view.last()
     }
 
-    fn next_after(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_after(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         self.view.next_after(index)
     }
 
-    fn next_before(&self, index: IndexOfChunk) -> Option<IndexOfChunk> {
+    fn next_before(&self, index: IndexOfChunkRaw) -> Option<IndexOfChunkRaw> {
         self.view.next_before(index)
     }
 }
 
-impl<'a, V> BitChunkStore for LastBitChunkStore<'a, V>
+impl<'a, V> BitChunkStoreRaw for LastBitChunkStoreRaw<'a, V>
 where
-    V: BitChunkStore,
+    V: BitChunkStoreRaw,
 {
-    fn set(&mut self, index: IndexOfChunk, chunk: BitChunk) -> Result<BitChunk, BitStoreError> {
+    fn set(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw) -> Result<BitChunkRaw, BitStoreError> {
         self.cache.set(index, chunk, self.view)
     }
 }
 
 //  #   Safety
 //
-//  -   Faithful: `CacheView` guarantees that the `BitChunk` returned is a copy of the one matching `V`.
+//  -   Faithful: `CacheView` guarantees that the `BitChunkRaw` returned is a copy of the one matching `V`.
 //  -   One-pass: inherited from `V`.
-unsafe impl<'a, V> TrustedBitChunkStore for LastBitChunkStore<'a, V> where V: TrustedBitChunkStore {}
+unsafe impl<'a, V> TrustedBitChunkStoreRaw for LastBitChunkStoreRaw<'a, V> where V: TrustedBitChunkStoreRaw {}
 
 //
 //  Implementation
@@ -145,14 +145,14 @@ unsafe impl<'a, V> TrustedBitChunkStore for LastBitChunkStore<'a, V> where V: Tr
 
 #[derive(Clone, Debug, Default)]
 struct CacheView {
-    index: Cell<Option<IndexOfChunk>>,
-    chunk: Cell<BitChunk>,
+    index: Cell<Option<IndexOfChunkRaw>>,
+    chunk: Cell<BitChunkRaw>,
 }
 
 impl CacheView {
-    fn get<V>(&self, index: IndexOfChunk, view: &V) -> BitChunk
+    fn get<V>(&self, index: IndexOfChunkRaw, view: &V) -> BitChunkRaw
     where
-        V: BitChunkView,
+        V: BitChunkViewRaw,
     {
         if self.index.get() == Some(index) {
             return self.chunk.get();
@@ -168,9 +168,9 @@ impl CacheView {
     //
     //  The caller guarantees that `index` was either returned by a call to `self.first()`, `self.last()`,
     //  `self.next_after(...)`, or `self.next_before(...)`.
-    unsafe fn get_unchecked<V>(&self, index: IndexOfChunk, view: &V) -> BitChunk
+    unsafe fn get_unchecked<V>(&self, index: IndexOfChunkRaw, view: &V) -> BitChunkRaw
     where
-        V: BitChunkView,
+        V: BitChunkViewRaw,
     {
         if self.index.get() == Some(index) {
             return self.chunk.get();
@@ -185,9 +185,9 @@ impl CacheView {
         self.chunk.get()
     }
 
-    fn set<V>(&mut self, index: IndexOfChunk, chunk: BitChunk, view: &mut V) -> Result<BitChunk, BitStoreError>
+    fn set<V>(&mut self, index: IndexOfChunkRaw, chunk: BitChunkRaw, view: &mut V) -> Result<BitChunkRaw, BitStoreError>
     where
-        V: BitChunkStore,
+        V: BitChunkStoreRaw,
     {
         let previous = view.set(index, chunk)?;
 
