@@ -1,8 +1,6 @@
 //! Core implementation of a bit-keyed set, generic over a chunks store.
 
-use crate::utils::{
-    BitChunkIter, BitChunkRaw, BitChunkStoreRaw, BitChunkViewRaw, BitIndexOfChunkIter, BitStoreError, IndexOfChunkRaw,
-};
+use crate::utils::{BitChunkRaw, BitChunkStoreRaw, BitOfChunkIter, BitStoreError};
 
 /// Core implementation of a bit-keyed set.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -50,12 +48,12 @@ where
 
     /// Returns whether the set is empty.
     pub fn is_empty(&self) -> bool {
-        BitChunkIter::new(&self.chunks).all(|(_, chunk)| chunk == BitChunkRaw::ALL_ZEROS)
+        BitOfChunkIter::new(&self.chunks).all(|(_, chunk)| chunk == BitChunkRaw::ALL_ZEROS)
     }
 
     /// Returns the number of elements in the set.
     pub fn len(&self) -> usize {
-        BitChunkIter::new(&self.chunks).map(|(_, chunk)| chunk.count()).sum()
+        BitOfChunkIter::new(&self.chunks).map(|(_, chunk)| chunk.count()).sum()
     }
 
     /// Returns whether the set contains the key, or not.
@@ -69,7 +67,7 @@ where
 
     /// Clears the set, removing all elements.
     pub fn clear(&mut self) {
-        let mut iter = BitChunkIter::new(&mut self.chunks);
+        let mut iter = BitOfChunkIter::new(&mut self.chunks);
 
         while let Some((of_chunk, _)) = iter.next() {
             //  May only fail if the chunk isn't already `ALL_ZEROS`, in which case it doesn't matter.

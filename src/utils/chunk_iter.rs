@@ -61,12 +61,12 @@ impl BitIndexOfChunkIterRev {
 }
 
 /// Forward iterator over a `BitChunkViewRaw`.
-pub struct BitChunkIter<V> {
+pub struct BitOfChunkIter<V> {
     index: BitIndexOfChunkIter,
     view: V,
 }
 
-impl<V> BitChunkIter<V>
+impl<V> BitOfChunkIter<V>
 where
     V: BitChunkViewRaw,
 {
@@ -88,7 +88,7 @@ where
     }
 }
 
-impl<V> Iterator for BitChunkIter<V>
+impl<V> Iterator for BitOfChunkIter<V>
 where
     V: BitChunkViewRaw,
 {
@@ -106,12 +106,12 @@ where
 }
 
 /// Backward (reverse) iterator over a `BitChunkViewRaw`.
-pub struct BitChunkIterRev<V> {
+pub struct BitOfChunkIterRev<V> {
     index: BitIndexOfChunkIterRev,
     view: V,
 }
 
-impl<V> BitChunkIterRev<V>
+impl<V> BitOfChunkIterRev<V>
 where
     V: BitChunkViewRaw,
 {
@@ -133,7 +133,7 @@ where
     }
 }
 
-impl<V> Iterator for BitChunkIterRev<V>
+impl<V> Iterator for BitOfChunkIterRev<V>
 where
     V: BitChunkViewRaw,
 {
@@ -159,8 +159,8 @@ mod iter_tests {
         const EMPTY: [BitChunkRaw; 0] = [];
         const EXPECTED: &[BitChunkRaw] = &[];
 
-        assert_eq!(EXPECTED, collect(BitChunkIter::new(EMPTY)));
-        assert_eq!(EXPECTED, collect(BitChunkIterRev::new(EMPTY)));
+        assert_eq!(EXPECTED, collect(BitOfChunkIter::new(EMPTY)));
+        assert_eq!(EXPECTED, collect(BitOfChunkIterRev::new(EMPTY)));
     }
 
     #[test]
@@ -170,8 +170,8 @@ mod iter_tests {
         const SINGLE: [BitChunkRaw; 1] = [ONE];
         const EXPECTED: &[BitChunkRaw] = &[ONE];
 
-        assert_eq!(EXPECTED, collect(BitChunkIter::new(SINGLE)));
-        assert_eq!(EXPECTED, collect(BitChunkIterRev::new(SINGLE)));
+        assert_eq!(EXPECTED, collect(BitOfChunkIter::new(SINGLE)));
+        assert_eq!(EXPECTED, collect(BitOfChunkIterRev::new(SINGLE)));
     }
 
     #[test]
@@ -184,8 +184,8 @@ mod iter_tests {
         const EXPECTED_FORWARD: &[BitChunkRaw] = &[ONE, TWO, THREE];
         const EXPECTED_BACKWARD: &[BitChunkRaw] = &[THREE, TWO, ONE];
 
-        assert_eq!(EXPECTED_FORWARD, collect(BitChunkIter::new(TRIO)));
-        assert_eq!(EXPECTED_BACKWARD, collect(BitChunkIterRev::new(TRIO)));
+        assert_eq!(EXPECTED_FORWARD, collect(BitOfChunkIter::new(TRIO)));
+        assert_eq!(EXPECTED_BACKWARD, collect(BitOfChunkIterRev::new(TRIO)));
     }
 
     fn collect<I>(iter: I) -> Vec<BitChunkRaw>
