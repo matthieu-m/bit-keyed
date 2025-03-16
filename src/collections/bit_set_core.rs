@@ -1,6 +1,8 @@
 //! Core implementation of a bit-keyed set, generic over a chunks store.
 
-use crate::utils::{BitChunkIter, BitChunkRaw, BitChunkStoreRaw, BitStoreError};
+use crate::utils::{
+    BitChunkIter, BitChunkRaw, BitChunkStoreRaw, BitChunkViewRaw, BitIndexOfChunkIter, BitStoreError, IndexOfChunkRaw,
+};
 
 /// Core implementation of a bit-keyed set.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -39,6 +41,11 @@ where
     /// Returns the underlying chunks.
     pub fn chunks(&self) -> &S {
         &self.chunks
+    }
+
+    /// Returns the underlying chunks.
+    pub fn chunks_mut(&mut self) -> &mut S {
+        &mut self.chunks
     }
 
     /// Returns whether the set is empty.

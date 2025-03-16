@@ -3,8 +3,66 @@
 use super::{BitChunkRaw, BitChunkViewRaw, IndexOfChunkRaw};
 
 /// Forward iterator over a `BitChunkViewRaw`.
-pub struct BitChunkIter<V> {
+pub struct BitIndexOfChunkIter {
     of_chunk: Option<IndexOfChunkRaw>,
+}
+
+impl BitIndexOfChunkIter {
+    /// Creates a new instance.
+    pub fn new<V>(view: &V) -> Self
+    where
+        V: BitChunkViewRaw,
+    {
+        let of_chunk = view.first();
+
+        Self { of_chunk }
+    }
+
+    /// Returns the next index.
+    pub fn next<V>(&mut self, view: &V) -> Option<IndexOfChunkRaw>
+    where
+        V: BitChunkViewRaw,
+    {
+        let of_chunk = self.of_chunk?;
+
+        self.of_chunk = of_chunk.checked_add(1).and_then(|i| view.next_after(i));
+
+        Some(of_chunk)
+    }
+}
+
+/// Backward (reverse) iterator over a `BitChunkViewRaw`.
+pub struct BitIndexOfChunkIterRev {
+    of_chunk: Option<IndexOfChunkRaw>,
+}
+
+impl BitIndexOfChunkIterRev {
+    /// Creates a new instance.
+    pub fn new<V>(view: &V) -> Self
+    where
+        V: BitChunkViewRaw,
+    {
+        let of_chunk = view.last();
+
+        Self { of_chunk }
+    }
+
+    /// Returns the next index.
+    pub fn next<V>(&mut self, view: &V) -> Option<IndexOfChunkRaw>
+    where
+        V: BitChunkViewRaw,
+    {
+        let of_chunk = self.of_chunk?;
+
+        self.of_chunk = of_chunk.checked_sub(1).and_then(|i| view.next_before(i));
+
+        Some(of_chunk)
+    }
+}
+
+/// Forward iterator over a `BitChunkViewRaw`.
+pub struct BitChunkIter<V> {
+    index: BitIndexOfChunkIter,
     view: V,
 }
 
@@ -14,9 +72,9 @@ where
 {
     /// Creates a new instance.
     pub fn new(view: V) -> Self {
-        let of_chunk = view.first();
+        let index = BitIndexOfChunkIter::new(&view);
 
-        Self { of_chunk, view }
+        Self { index, view }
     }
 
     /// Returns the underlying view.
@@ -37,13 +95,11 @@ where
     type Item = (IndexOfChunkRaw, BitChunkRaw);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let of_chunk = self.of_chunk?;
+        let of_chunk = self.index.next(&self.view)?;
 
         //  Safety:
-        //  -   `of_chunk` was obtained by either `self.view.first()` or `self.view.next_after(...)`.
+        //  -   `of_chunk` was obtained by either `view.first()` or `view.next_after(...)`.
         let chunk = unsafe { self.view.get_unchecked(of_chunk) };
-
-        self.of_chunk = of_chunk.checked_add(1).and_then(|i| self.view.next_after(i));
 
         Some((of_chunk, chunk))
     }
@@ -51,7 +107,7 @@ where
 
 /// Backward (reverse) iterator over a `BitChunkViewRaw`.
 pub struct BitChunkIterRev<V> {
-    of_chunk: Option<IndexOfChunkRaw>,
+    index: BitIndexOfChunkIterRev,
     view: V,
 }
 
@@ -61,9 +117,9 @@ where
 {
     /// Creates a new instance.
     pub fn new(view: V) -> Self {
-        let of_chunk = view.last();
+        let index = BitIndexOfChunkIterRev::new(&view);
 
-        Self { of_chunk, view }
+        Self { index, view }
     }
 
     /// Returns the underlying view.
@@ -84,20 +140,18 @@ where
     type Item = (IndexOfChunkRaw, BitChunkRaw);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let of_chunk = self.of_chunk?;
+        let of_chunk = self.index.next(&self.view)?;
 
         //  Safety:
-        //  -   `of_chunk` was obtained by either `self.view.last()` or `self.view.next_before(...)`.
+        //  -   `of_chunk` was obtained by either `view.last()` or `view.next_before(...)`.
         let chunk = unsafe { self.view.get_unchecked(of_chunk) };
-
-        self.of_chunk = of_chunk.checked_sub(1).and_then(|i| self.view.next_before(i));
 
         Some((of_chunk, chunk))
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod iter_tests {
     use super::*;
 
     #[test]
@@ -140,4 +194,4 @@ mod tests {
     {
         iter.map(|(_, c)| c).collect()
     }
-} // mod tests
+} // mod iter_tests
